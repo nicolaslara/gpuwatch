@@ -17,4 +17,6 @@ jobs:
             dist/gpuwatch
             dist/entrypoint.sh
             dist/install.sh
+            dist/gpuwatch-init.py
+            dist/gpuwatch-boot.py
             dist/*.whl

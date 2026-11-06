@@ -1,19 +1,15 @@
 //! gpuwatch: samples NVML inside a Modal container, detects sustained thermal
-//! throttling, and reports it to a collector and to a state file.
+//! throttling, and records it in the container log and a state file.
 
 mod rule;
 
 use rule::{Sample, Sensitivity, Thresholds, Verdict, Window, WindowStats};
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::process::ExitCode;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-/// Where events go unless GPUWATCH_REPORT_URL / --report-url say otherwise;
-/// the value "none" disables reporting.
-const DEFAULT_REPORT_URL: &str = "https://modal-labs-gpuwatch--gpuwatch-web.modal.run/report";
 /// One daemon per container: a second `watch` finds the lock held and exits.
 const LOCK_FILE: &str = "/tmp/gpuwatch.lock";
 const USAGE: &str = "\
@@ -33,8 +29,6 @@ Options for both:
   --reduction FRACTION              mean clock reduction while thermally
                                     throttled that fires (overrides preset)
   --interval SECONDS                poll interval (default 2)
-  --report-url URL                  POST each event (and each check) as JSON
-                                    (default: Modal's collector; none disables)
   --state-file PATH                 write the latest state as JSON
                                     (default /tmp/gpuwatch.json for watch)
   --on-event COMMAND                run with `sh -c` once per event
@@ -42,9 +36,9 @@ Options for both:
   --quiet                           no stderr lines except errors
 
 Environment variables set the defaults for the flags: GPUWATCH_SENSITIVITY,
-GPUWATCH_WINDOW, GPUWATCH_REDUCTION, GPUWATCH_INTERVAL, GPUWATCH_REPORT_URL,
-GPUWATCH_STATE_FILE, GPUWATCH_ON_EVENT, GPUWATCH_QUIET=1. GPUWATCH_DISABLED=1
-makes `watch` exit at once.
+GPUWATCH_WINDOW, GPUWATCH_REDUCTION, GPUWATCH_INTERVAL, GPUWATCH_STATE_FILE,
+GPUWATCH_ON_EVENT, GPUWATCH_QUIET=1. GPUWATCH_DISABLED=1 makes `watch` exit
+at once.
 
 Presets (window, thermal fraction, clock reduction while throttled):
   low     10 min  50%  50%   half speed or worse, a broken heat path
@@ -57,7 +51,6 @@ struct Args {
     seconds: f64,
     thresholds: Thresholds,
     interval: f64,
-    report_url: Option<String>,
     state_file: Option<String>,
     on_event: Option<String>,
     json: bool,
@@ -119,8 +112,6 @@ fn parse_args() -> Result<Args, String> {
     let mut window = env_num("GPUWATCH_WINDOW")?;
     let mut reduction = env_num("GPUWATCH_REDUCTION")?;
     let mut interval = env_num("GPUWATCH_INTERVAL")?.unwrap_or(2.0);
-    let mut report_url =
-        Some(env("GPUWATCH_REPORT_URL").unwrap_or_else(|| DEFAULT_REPORT_URL.to_string()));
     let mut state_file = env("GPUWATCH_STATE_FILE");
     let mut on_event = env("GPUWATCH_ON_EVENT");
     let mut json = false;
@@ -161,7 +152,6 @@ fn parse_args() -> Result<Args, String> {
                     .parse()
                     .map_err(|e| format!("--interval: {e}"))?
             }
-            "--report-url" => report_url = Some(value(&flag, &mut rest)?),
             "--state-file" => state_file = Some(value(&flag, &mut rest)?),
             "--on-event" => on_event = Some(value(&flag, &mut rest)?),
             "--json" => json = true,
@@ -188,18 +178,11 @@ fn parse_args() -> Result<Args, String> {
     if command == "watch" && state_file.is_none() {
         state_file = Some("/tmp/gpuwatch.json".into());
     }
-    if report_url
-        .as_deref()
-        .is_some_and(|u| u.is_empty() || u == "none")
-    {
-        report_url = None;
-    }
     Ok(Args {
         command,
         seconds,
         thresholds,
         interval,
-        report_url,
         state_file,
         on_event,
         json,
@@ -208,8 +191,6 @@ fn parse_args() -> Result<Args, String> {
 }
 
 /// Where the report comes from, read from the Modal container environment.
-/// Token claims are decoded without verification; the collector verifies the
-/// token itself from the Authorization header.
 #[derive(Clone, Serialize)]
 struct Context {
     task_id: Option<String>,
@@ -219,66 +200,10 @@ struct Context {
     environment: Option<String>,
     image_id: Option<String>,
     hostname: Option<String>,
-    claims: BTreeMap<String, String>,
 }
 
 fn env(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
-}
-
-fn base64url_decode(s: &str) -> Option<Vec<u8>> {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    let mut out = Vec::with_capacity(s.len() * 3 / 4);
-    let mut acc: u32 = 0;
-    let mut bits = 0;
-    for c in s.bytes() {
-        if c == b'=' {
-            break;
-        }
-        let v = ALPHABET.iter().position(|&a| a == c)? as u32;
-        acc = (acc << 6) | v;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((acc >> bits) as u8);
-            acc &= (1 << bits) - 1;
-        }
-    }
-    Some(out)
-}
-
-fn token_claims(token: &str) -> BTreeMap<String, String> {
-    let mut claims = BTreeMap::new();
-    let Some(payload) = token.split('.').nth(1) else {
-        return claims;
-    };
-    let Some(bytes) = base64url_decode(payload) else {
-        return claims;
-    };
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-        return claims;
-    };
-    for key in [
-        "workspace_id",
-        "environment_name",
-        "app_id",
-        "app_name",
-        "function_id",
-        "function_name",
-        "sandbox_id",
-        "sandbox_name",
-        "container_id",
-        "exp",
-    ] {
-        if let Some(v) = value.get(key) {
-            let s = match v {
-                serde_json::Value::String(s) => s.clone(),
-                other => other.to_string(),
-            };
-            claims.insert(key.to_string(), s);
-        }
-    }
-    claims
 }
 
 impl Context {
@@ -294,9 +219,6 @@ impl Context {
             hostname: std::fs::read_to_string("/etc/hostname")
                 .ok()
                 .map(|h| h.trim().to_string()),
-            claims: env("MODAL_IDENTITY_TOKEN")
-                .map(|t| token_claims(&t))
-                .unwrap_or_default(),
         }
     }
 }
@@ -435,26 +357,6 @@ fn sample(gpu: &Gpu) -> Result<Sample, String> {
     })
 }
 
-fn post_report(url: &str, body: &str, quiet: bool) {
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(Duration::from_secs(10)))
-        .build()
-        .into();
-    let mut req = agent.post(url).header("Content-Type", "application/json");
-    if let Some(token) = env("MODAL_IDENTITY_TOKEN") {
-        req = req.header("Authorization", &format!("Bearer {token}"));
-    }
-    match req.send(body) {
-        Ok(resp) if resp.status().is_success() => {
-            if !quiet {
-                eprintln!("gpuwatch: reported to {url}");
-            }
-        }
-        Ok(resp) => eprintln!("gpuwatch: report to {url} failed: HTTP {}", resp.status()),
-        Err(e) => eprintln!("gpuwatch: report to {url} failed: {e}"),
-    }
-}
-
 fn write_state(path: &str, state: &State) {
     let tmp = format!("{path}.tmp");
     let body = match serde_json::to_vec_pretty(state) {
@@ -586,9 +488,6 @@ fn main() -> ExitCode {
             }
             if verdict.event {
                 throttling = true;
-                if let Some(url) = &args.report_url {
-                    post_report(url, &json, args.quiet);
-                }
             }
         }
         return ExitCode::from(if throttling { 2 } else { 0 });
@@ -646,9 +545,6 @@ fn main() -> ExitCode {
             };
             let json = serde_json::to_string(&report).unwrap_or_default();
             eprintln!("gpuwatch: THROTTLING {}", describe(&report));
-            if let Some(url) = &args.report_url {
-                post_report(url, &json, args.quiet);
-            }
             last_event = serde_json::from_str(&json).ok();
             fired = true;
             if let Some(cmd) = &args.on_event {

@@ -2,9 +2,9 @@
 # Installs gpuwatch into an image: the binary, the Python start hook (a .pth
 # file, so every Python interpreter in a GPU container starts the daemon) and
 # gpuwatch-entrypoint for images whose command is not Python.
-#   RUN curl -fsSL https://modal-labs-gpuwatch--gpuwatch-web.modal.run/install.sh | sh
+#   RUN curl -fsSL https://github.com/modal-projects/gpuwatch/releases/latest/download/install.sh | sh
 set -eu
-BASE="${GPUWATCH_BASE_URL:-https://modal-labs-gpuwatch--gpuwatch-web.modal.run}"
+BASE="${GPUWATCH_BASE_URL:-https://github.com/modal-projects/gpuwatch/releases/latest/download}"
 BIN=/usr/local/bin
 PY="${GPUWATCH_PYTHON:-$(command -v python3 || command -v python || true)}"
 # curl, else wget, else the image's Python: modal.Image.debian_slim ships none of the first two.
@@ -23,8 +23,8 @@ chmod 755 "$BIN/gpuwatch" "$BIN/gpuwatch-entrypoint"
 if [ -n "$PY" ]; then
   SITE="$("$PY" -c 'import site; print(site.getsitepackages()[0])')"
   mkdir -p "$SITE/gpuwatch"
-  fetch "$BASE/py/__init__.py" > "$SITE/gpuwatch/__init__.py"
-  fetch "$BASE/py/_boot.py" > "$SITE/gpuwatch/_boot.py"
+  fetch "$BASE/gpuwatch-init.py" > "$SITE/gpuwatch/__init__.py"
+  fetch "$BASE/gpuwatch-boot.py" > "$SITE/gpuwatch/_boot.py"
   echo "import gpuwatch._boot" > "$SITE/gpuwatch_boot.pth"
   echo "gpuwatch: installed $BIN/gpuwatch and the start hook for $PY"
 else

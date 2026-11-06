@@ -15,6 +15,6 @@ docker run --rm -v "$PWD":/src -w /src -v gpuwatch-cargo:/root/.cargo/registry \
     cp /src/target/linux/release/gpuwatch /src/dist/gpuwatch
     chmod -R a+rwX /src/target/linux /src/dist'
 cp dist/gpuwatch python/gpuwatch/bin/gpuwatch && cp README.md python/README.md
-cp entrypoint.sh install.sh dist/ && mkdir -p dist/py && cp python/gpuwatch/__init__.py python/gpuwatch/_boot.py dist/py/
+cp entrypoint.sh install.sh dist/ && cp python/gpuwatch/__init__.py dist/gpuwatch-init.py && cp python/gpuwatch/_boot.py dist/gpuwatch-boot.py
 (cd python && rm -rf dist && (command -v uvx >/dev/null && uvx hatchling build -t wheel || python3 -m pip wheel --no-deps -w dist .) >/dev/null && cp dist/*.whl ../dist/)
 ls -l dist/
