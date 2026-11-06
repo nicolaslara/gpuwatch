@@ -8,11 +8,11 @@ One line on your image:
 
 ```python
 image = modal.Image.debian_slim().pip_install(
-    "https://modal-labs--gpuwatch-web.modal.run/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl"
+    "https://modal-labs-gpuwatch--gpuwatch-web.modal.run/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl"
 )
 ```
 
-Modal hosts the wheel; it may be published to PyPI as `modal-gpuwatch` later. Without pip, `.run_commands("curl -fsSL https://modal-labs--gpuwatch-web.modal.run/install.sh | sh")` installs the same files for the image's Python (the script fetches with curl, wget or Python, whichever exists).
+Modal hosts the wheel; it may be published to PyPI as `modal-gpuwatch` later. Without pip, `.run_commands("curl -fsSL https://modal-labs-gpuwatch--gpuwatch-web.modal.run/install.sh | sh")` installs the same files for the image's Python (the script fetches with curl, wget or Python, whichever exists).
 
 Every Function or Sandbox container with a GPU then starts `gpuwatch watch` as soon as Python starts; nothing in your code changes. For images whose command is not Python, add `.dockerfile_commands('ENTRYPOINT ["gpuwatch-entrypoint"]')` after the install line; an image with its own entrypoint chains it, `ENTRYPOINT ["gpuwatch-entrypoint", "/your/entrypoint"]`, and keeps its arguments. Linux x86_64, glibc 2.17 or newer (CentOS 7, Ubuntu 18.04, Debian 10 and anything later); Alpine is not supported.
 
