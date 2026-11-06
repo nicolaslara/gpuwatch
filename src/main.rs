@@ -13,7 +13,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Where events go unless GPUWATCH_REPORT_URL / --report-url say otherwise;
 /// the value "none" disables reporting.
-const DEFAULT_REPORT_URL: &str = "https://modal-labs--gpuwatch-collector-web.modal.run/report";
+const DEFAULT_REPORT_URL: &str = "https://modal-labs--gpuwatch-web.modal.run/report";
 /// One daemon per container: a second `watch` finds the lock held and exits.
 const LOCK_FILE: &str = "/tmp/gpuwatch.lock";
 const USAGE: &str = "\

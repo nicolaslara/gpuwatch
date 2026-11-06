@@ -11,7 +11,7 @@ import modal
 import modal.experimental
 
 app = modal.App("gpuwatch-example")
-image = modal.Image.debian_slim(python_version="3.12").pip_install("torch==2.9.0", "modal-gpuwatch")
+image = modal.Image.debian_slim(python_version="3.12").pip_install("torch==2.9.0", "https://modal-labs--gpuwatch-web.modal.run/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl")
 
 
 @app.function(gpu="H100", image=image, timeout=3600)

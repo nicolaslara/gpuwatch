@@ -2,9 +2,9 @@
 # Installs gpuwatch into an image: the binary, the Python start hook (a .pth
 # file, so every Python interpreter in a GPU container starts the daemon) and
 # gpuwatch-entrypoint for images whose command is not Python.
-#   RUN curl -fsSL https://modal-labs--gpuwatch-collector-web.modal.run/install.sh | sh
+#   RUN curl -fsSL https://modal-labs--gpuwatch-web.modal.run/install.sh | sh
 set -eu
-BASE="${GPUWATCH_BASE_URL:-https://modal-labs--gpuwatch-collector-web.modal.run}"
+BASE="${GPUWATCH_BASE_URL:-https://modal-labs--gpuwatch-web.modal.run}"
 BIN=/usr/local/bin
 PY="${GPUWATCH_PYTHON:-$(command -v python3 || command -v python || true)}"
 # curl, else wget, else the image's Python: modal.Image.debian_slim ships none of the first two.
