@@ -33,7 +33,8 @@ Options for both:
                                     (default /tmp/gpuwatch.json for watch)
   --on-event COMMAND                run with `sh -c` once per event
   --json                            check: print the full report
-  --quiet                           no stderr lines except errors
+  --verbose                         print a startup line and NVML reopen notices
+  --quiet                           no stderr lines except errors and events
 
 Environment variables set the defaults for the flags: GPUWATCH_SENSITIVITY,
 GPUWATCH_WINDOW, GPUWATCH_REDUCTION, GPUWATCH_INTERVAL, GPUWATCH_STATE_FILE,
@@ -55,6 +56,7 @@ struct Args {
     on_event: Option<String>,
     json: bool,
     quiet: bool,
+    verbose: bool,
 }
 
 fn parse_args() -> Result<Args, String> {
@@ -116,6 +118,7 @@ fn parse_args() -> Result<Args, String> {
     let mut on_event = env("GPUWATCH_ON_EVENT");
     let mut json = false;
     let mut quiet = env("GPUWATCH_QUIET").is_some_and(|v| v != "0");
+    let mut verbose = env("GPUWATCH_VERBOSE").is_some_and(|v| v != "0");
     let mut rest: Vec<String> = argv.collect();
     rest.reverse();
     let value = |flag: &str, rest: &mut Vec<String>| {
@@ -156,6 +159,7 @@ fn parse_args() -> Result<Args, String> {
             "--on-event" => on_event = Some(value(&flag, &mut rest)?),
             "--json" => json = true,
             "--quiet" => quiet = true,
+            "--verbose" => verbose = true,
             _ => return Err(format!("unknown flag {flag:?}")),
         }
     }
@@ -187,6 +191,7 @@ fn parse_args() -> Result<Args, String> {
         on_event,
         json,
         quiet,
+        verbose,
     })
 }
 
@@ -435,7 +440,7 @@ fn main() -> ExitCode {
     };
     let context = Context::read();
     let interval = Duration::from_secs_f64(args.interval);
-    if !args.quiet {
+    if args.verbose && !args.quiet {
         eprintln!(
             "gpuwatch {VERSION}: {} GPU(s), {} sensitivity, window {} busy min, fires at {:.0}% thermal samples and {:.0}% clock reduction, {}s interval",
             gpus.len(),
@@ -506,7 +511,7 @@ fn main() -> ExitCode {
                 Ok(g) => {
                     gpus = g;
                     failures = 0;
-                    if !args.quiet {
+                    if args.verbose && !args.quiet {
                         eprintln!("gpuwatch: NVML reopened, {} GPU(s)", gpus.len());
                     }
                 }

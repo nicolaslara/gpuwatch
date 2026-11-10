@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.89"
 description = "Detects sustained GPU thermal throttling inside a Modal container"
 license = "MIT"
-repository = "https://github.com/modal-projects/gpuwatch"
+repository = "https://github.com/nicolaslara/gpuwatch"
 
 [dependencies]
 nvml-wrapper = "0.13"

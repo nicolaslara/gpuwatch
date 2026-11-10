@@ -8,17 +8,17 @@ One line on your image:
 
 ```python
 image = modal.Image.debian_slim().pip_install(
-    "https://github.com/modal-projects/gpuwatch/releases/latest/download/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl"
+    "https://github.com/nicolaslara/gpuwatch/releases/latest/download/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl"
 )
 ```
 
-Without pip, `.run_commands("curl -fsSL https://github.com/modal-projects/gpuwatch/releases/latest/download/install.sh | sh")` installs the same files for the image's Python (the script fetches with curl, wget or Python, whichever exists). The wheel may be published to PyPI as `modal-gpuwatch` later.
+Without pip, `.run_commands("curl -fsSL https://github.com/nicolaslara/gpuwatch/releases/latest/download/install.sh | sh")` installs the same files for the image's Python (the script fetches with curl, wget or Python, whichever exists). The wheel may be published to PyPI as `modal-gpuwatch` later.
 
 Every Function or Sandbox container with a GPU then starts `gpuwatch watch` as soon as Python starts; nothing in your code changes. For images whose command is not Python, add `.dockerfile_commands('ENTRYPOINT ["gpuwatch-entrypoint"]')` after the install line; an image with its own entrypoint chains it, `ENTRYPOINT ["gpuwatch-entrypoint", "/your/entrypoint"]`, and keeps its arguments. Linux x86_64, glibc 2.17 or newer (CentOS 7, Ubuntu 18.04, Debian 10 and anything later); Alpine is not supported.
 
 ## What you see
 
-A throttled GPU puts one line in your container logs, once per window:
+A throttled GPU puts one line in your container logs, once per window. The daemon prints nothing else unless `GPUWATCH_VERBOSE=1` asks for a startup line:
 
 ```
 gpuwatch: THROTTLING GPU 0 NVIDIA H100 80GB HBM3 (GPU-54655b4f-…): 10.0 busy min, thermal 100% of samples, clock 32% of max (32% while throttled), temp max 91 C, power 0.31 of limit
@@ -53,7 +53,7 @@ For a Sandbox, `exec("gpuwatch", "event")` prints the last event and exits 2 whe
 
 ## Configuration
 
-Environment variables on the image (`.env`) or the Function: `GPUWATCH_SENSITIVITY`, `GPUWATCH_WINDOW` (busy minutes), `GPUWATCH_REDUCTION`, `GPUWATCH_INTERVAL` (seconds), `GPUWATCH_STATE_FILE`, `GPUWATCH_ON_EVENT`, `GPUWATCH_QUIET=1`, `GPUWATCH_DISABLED=1`. The same settings are flags of `gpuwatch watch`; in a shell, `gpuwatch check --seconds 30` gives a one-shot verdict and `gpuwatch event` prints the daemon's last event (both exit 2 when throttling).
+Environment variables on the image (`.env`) or the Function: `GPUWATCH_SENSITIVITY`, `GPUWATCH_WINDOW` (busy minutes), `GPUWATCH_REDUCTION`, `GPUWATCH_INTERVAL` (seconds), `GPUWATCH_STATE_FILE`, `GPUWATCH_ON_EVENT`, `GPUWATCH_VERBOSE=1` (startup line), `GPUWATCH_QUIET=1` (errors and events only), `GPUWATCH_DISABLED=1`. The same settings are flags of `gpuwatch watch`; in a shell, `gpuwatch check --seconds 30` gives a one-shot verdict and `gpuwatch event` prints the daemon's last event (both exit 2 when throttling).
 
 ## Building
 

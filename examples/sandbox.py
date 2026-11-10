@@ -13,7 +13,7 @@ import modal
 LOAD = "import sys,time,torch;x=torch.randn(8192,8192,device='cuda',dtype=torch.float16);t=time.time()+int(sys.argv[1])\nwhile time.time()<t: x@x"
 
 app = modal.App("gpuwatch-sandbox-example")
-image = modal.Image.debian_slim(python_version="3.12").pip_install("torch==2.9.0", "https://github.com/modal-projects/gpuwatch/releases/latest/download/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl")
+image = modal.Image.debian_slim(python_version="3.12").pip_install("torch==2.9.0", "https://github.com/nicolaslara/gpuwatch/releases/latest/download/modal_gpuwatch-0.1.0-py3-none-manylinux2014_x86_64.whl")
 
 
 def event(sb: modal.Sandbox):
