@@ -49,6 +49,8 @@ if gpuwatch.event():
     modal.experimental.stop_fetching_inputs()
 ```
 
+For a multi-node job, have every rank check on the same step, save a checkpoint and raise, so a retry resumes on a new cluster (`examples/clustered.py`).
+
 For a Sandbox, `exec("gpuwatch", "event")` prints the last event and exits 2 when there is one; recreate the Sandbox on it (`examples/sandbox.py`). `GPUWATCH_ON_EVENT` runs a shell command once per event, with the report in `GPUWATCH_REPORT`.
 
 ## Configuration
